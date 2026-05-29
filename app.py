@@ -5,7 +5,7 @@ from datetime import datetime
 import yfinance as yf
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Sistem Analisis", page_icon="💎", layout="wide")
+st.set_page_config(page_title="Dasbor Trading", page_icon="💎", layout="wide")
 
 st.markdown("""
 <style>
@@ -19,7 +19,9 @@ div[data-testid="metric-container"] {
 </style>
 """, unsafe_allow_html=True)
 
+# ==============================================================
 GAS_URL = "https://script.google.com/macros/s/AKfycbztzJL_waRDfHgmfgxLZN4em1N6RikwOBAvv7Q-9csLxWCOGAbFPUh219JAmP4Tgw/exec"
+# ==============================================================
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -29,10 +31,11 @@ if 'brokers' not in st.session_state:
     st.session_state['brokers'] = []
 
 if not st.session_state['logged_in']:
-    st.title("🔐 Akses Sistem SPK Saham")
-    tab_login, tab_register, tab_forgot = st.tabs(["🔑 Masuk", "📝 Daftar Akun", "🆘 Lupa Password"])
+    st.title("🔐 Akses Dasbor Trading")
+    tab_login, tab_register, tab_forgot = st.tabs(["🔑 Masuk", "📝 Daftar Baru", "🆘 Reset Password"])
     
     with tab_login:
+        st.markdown("Selamat datang kembali! Masuk untuk amankan portofolio kamu.")
         with st.form("login_form"):
             username_input = st.text_input("Username")
             password_input = st.text_input("Password", type="password")
@@ -52,6 +55,7 @@ if not st.session_state['logged_in']:
                         st.error("Gagal terhubung.")
                             
     with tab_register:
+        st.markdown("Mulai trading lebih pintar. Registrasi akun kamu di sini (100% Free).")
         with st.form("register_form"):
             new_user = st.text_input("Buat Username")
             new_email = st.text_input("Alamat Email")
@@ -68,6 +72,7 @@ if not st.session_state['logged_in']:
                         st.error("Gagal mendaftar.")
                             
     with tab_forgot:
+        st.markdown("Lupa password itu wajar. Kasih tahu username kamu, biar sistem yang urus sisanya.")
         with st.form("forgot_form"):
             f_user = st.text_input("Masukkan Username Anda")
             if st.form_submit_button("Kirim Password via Email", use_container_width=True):
@@ -88,7 +93,7 @@ else:
             
     col_title, col_logout = st.columns([5, 1])
     with col_title:
-        st.title("💎 Sistem SPK Saham Terpadu")
+        st.title("💎 Dasbor Trading Terpadu")
     with col_logout:
         st.write("")
         if st.button("🚪 Logout", use_container_width=True):
@@ -135,7 +140,7 @@ else:
             k1, k2, k3, k4 = st.columns(4)
             k1.metric("Scor Beli", res.get('scor_beli', 0))
             k2.metric("Scor Jual", res.get('scor_jual', 0))
-            k3.metric("Status SPK", res.get('status_spk', '-'))
+            k3.metric("Status Analisis", res.get('status_spk', '-'))
             k4.metric("Grade", res.get('grade', '-'))
             
             st.write("### Trading Plan")
