@@ -3,4 +3,3 @@ requests
 pandas
 yfinance
 plotly
-pandas-ta
