@@ -2,11 +2,11 @@ import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime
+import yfinance as yf
 
-st.set_page_config(page_title="Sistem Analisis", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Sistem Analisis", page_icon="🎯", layout="wide")
 
 # ==============================================================
-# MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI SINI:
 GAS_URL = "https://script.google.com/macros/s/AKfycbztzJL_waRDfHgmfgxLZN4em1N6RikwOBAvv7Q-9csLxWCOGAbFPUh219JAmP4Tgw/exec"
 # ==============================================================
 
@@ -17,380 +17,276 @@ if 'username' not in st.session_state:
 if 'brokers' not in st.session_state:
     st.session_state['brokers'] = []
 
+# --- HALAMAN LOGIN ---
 if not st.session_state['logged_in']:
     st.title("🔐 Akses Sistem SPK Saham")
     tab_login, tab_register, tab_forgot = st.tabs(["🔑 Masuk", "📝 Daftar Akun", "🆘 Lupa Password"])
     
     with tab_login:
-        st.markdown("Silakan masuk jika Anda sudah memiliki akun.")
         with st.form("login_form"):
             username_input = st.text_input("Username")
             password_input = st.text_input("Password", type="password")
             submit_login = st.form_submit_button("Masuk", width='stretch')
             if submit_login:
-                if not username_input or not password_input:
-                    st.warning("Username dan Password wajib diisi!")
-                else:
-                    with st.spinner("Memverifikasi data..."):
-                        payload = {"action": "login", "username": username_input, "password": password_input}
-                        try:
-                            res = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                            if res.status_code == 200:
-                                data = res.json()
-                                if data.get("status") == "success":
-                                    st.session_state['logged_in'] = True
-                                    st.session_state['username'] = username_input
-                                    st.success("Login berhasil!")
-                                    st.rerun()
-                                else:
-                                    st.error(data.get("message", "Gagal login."))
-                            else:
-                                st.error("Gagal terhubung ke database Spreadsheet.")
-                        except Exception as e:
-                            st.error("Terjadi kesalahan koneksi.")
+                with st.spinner("Memverifikasi data..."):
+                    try:
+                        res = requests.post(GAS_URL, json={"action": "login", "username": username_input, "password": password_input}, allow_redirects=True)
+                        data = res.json()
+                        if data.get("status") == "success":
+                            st.session_state['logged_in'] = True
+                            st.session_state['username'] = username_input
+                            st.rerun()
+                        else:
+                            st.error(data.get("message", "Gagal login."))
+                    except: st.error("Gagal terhubung.")
                             
     with tab_register:
-        st.markdown("Belum punya akun? Daftarkan diri Anda di sini secara gratis.")
         with st.form("register_form"):
-            new_user = st.text_input("Buat Username")
-            new_email = st.text_input("Alamat Email (Harus Aktif)")
-            new_pass = st.text_input("Buat Password", type="password")
-            conf_pass = st.text_input("Konfirmasi Password", type="password")
-            submit_register = st.form_submit_button("Daftar Sekarang", width='stretch')
-            if submit_register:
-                if not new_user or not new_email or not new_pass:
-                    st.warning("Semua kolom (Username, Email, Password) wajib diisi!")
-                elif new_pass != conf_pass:
-                    st.error("Password dan Konfirmasi Password tidak cocok!")
+            new_user, new_email, new_pass, conf_pass = st.text_input("Buat Username"), st.text_input("Alamat Email"), st.text_input("Buat Password", type="password"), st.text_input("Konfirmasi Password", type="password")
+            if st.form_submit_button("Daftar Sekarang", width='stretch'):
+                if new_pass != conf_pass: st.error("Password tidak cocok!")
                 else:
-                    with st.spinner("Mendaftarkan akun..."):
-                        payload = {"action": "register", "username": new_user, "password": new_pass, "email": new_email}
-                        try:
-                            res = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                            if res.status_code == 200:
-                                data = res.json()
-                                if data.get("status") == "success":
-                                    st.success(data.get("message"))
-                                else:
-                                    st.error(data.get("message"))
-                        except Exception as e:
-                            st.error("Terjadi kesalahan koneksi saat mendaftar.")
+                    try:
+                        res = requests.post(GAS_URL, json={"action": "register", "username": new_user, "password": new_pass, "email": new_email}, allow_redirects=True)
+                        st.success(res.json().get("message"))
+                    except: st.error("Gagal mendaftar.")
                             
     with tab_forgot:
-        st.markdown("Lupa password? Masukkan username Anda dan kami akan mengirimkan password ke email yang terdaftar.")
         with st.form("forgot_form"):
             f_user = st.text_input("Masukkan Username Anda")
-            submit_forgot = st.form_submit_button("Kirim Password via Email", width='stretch')
-            if submit_forgot:
-                if not f_user:
-                    st.warning("Username wajib diisi untuk mencari akun Anda!")
-                else:
-                    with st.spinner("Mencari akun dan mengirim email... (Mohon tunggu beberapa detik)"):
-                        payload = {"action": "forgot_password", "username": f_user}
-                        try:
-                            res = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                            if res.status_code == 200:
-                                data = res.json()
-                                if data.get("status") == "success":
-                                    st.success(data.get("message"))
-                                else:
-                                    st.error(data.get("message"))
-                        except Exception as e:
-                            st.error("Terjadi kesalahan koneksi.")
+            if st.form_submit_button("Kirim Password via Email", width='stretch'):
+                try:
+                    res = requests.post(GAS_URL, json={"action": "forgot_password", "username": f_user}, allow_redirects=True)
+                    st.success(res.json().get("message"))
+                except: st.error("Gagal mengirim.")
 
+# --- DASHBOARD UTAMA ---
 else:
     if not st.session_state['brokers']:
         try:
             res = requests.get(GAS_URL)
-            if res.status_code == 200:
-                st.session_state['brokers'] = res.json().get('brokers', [])
-        except:
-            st.session_state['brokers'] = []
+            if res.status_code == 200: st.session_state['brokers'] = res.json().get('brokers', [])
+        except: st.session_state['brokers'] = []
             
     col_title, col_logout = st.columns([5, 1])
-    with col_title:
-        st.title("📊 Sistem Analisis Bandarmologi IHSG")
+    with col_title: st.title("🎯 Sistem Analisis Bandarmologi IHSG")
     with col_logout:
         st.write("")
         if st.button("🚪 Logout", width='stretch'):
             st.session_state['logged_in'] = False
-            st.session_state['username'] = ''
             st.rerun()
             
     st.markdown(f"Selamat datang, **{st.session_state['username']}**. Berikut adalah dashboard trading pribadi Anda.")
     st.markdown("---")
     
-    # --- PENAMBAHAN TAB 3 (JURNAL) ---
-    tab1, tab2, tab3 = st.tabs(["💰💰💰 Input Data & Analisis", "🎯 Dashboard Log Book", "🏆 Jurnal & Evaluasi Performa"])
+    tab1, tab2, tab3 = st.tabs(["💰 Input Data & Analisis", "🎯 Dashboard Log Book", "🏆 Jurnal & Performa"])
     
+    # --- TAB 1: INPUT DATA ---
     with tab1:
         st.subheader("Input Data Analisis")
         col_emiten, col_net = st.columns(2)
-        with col_emiten:
-            emiten = st.text_input("Kode Emiten").upper()
-        with col_net:
-            total_net_buy = st.number_input("Total Net Buy", min_value=0.0, format="%.2f")
+        with col_emiten: emiten = st.text_input("Kode Emiten").upper()
+        with col_net: total_net_buy = st.number_input("Total Net Buy", min_value=0.0, format="%.2f")
             
         st.write("### Top 5 Buyers & Sellers")
         col_buy, col_sell = st.columns(2)
         with col_buy:
-            st.markdown("**Buyers**")
-            by1 = st.selectbox("Buyer 1", options=[""] + st.session_state['brokers'], key="b1")
-            by2 = st.selectbox("Buyer 2", options=[""] + st.session_state['brokers'], key="b2")
-            by3 = st.selectbox("Buyer 3", options=[""] + st.session_state['brokers'], key="b3")
-            by4 = st.selectbox("Buyer 4", options=[""] + st.session_state['brokers'], key="b4")
-            by5 = st.selectbox("Buyer 5", options=[""] + st.session_state['brokers'], key="b5")
+            b1, b2, b3, b4, b5 = [st.selectbox(f"Buyer {i}", [""] + st.session_state['brokers'], key=f"b{i}") for i in range(1, 6)]
         with col_sell:
-            st.markdown("**Sellers**")
-            sl1 = st.selectbox("Seller 1", options=[""] + st.session_state['brokers'], key="s1")
-            sl2 = st.selectbox("Seller 2", options=[""] + st.session_state['brokers'], key="s2")
-            sl3 = st.selectbox("Seller 3", options=[""] + st.session_state['brokers'], key="s3")
-            sl4 = st.selectbox("Seller 4", options=[""] + st.session_state['brokers'], key="s4")
-            sl5 = st.selectbox("Seller 5", options=[""] + st.session_state['brokers'], key="s5")
+            s1, s2, s3, s4, s5 = [st.selectbox(f"Seller {i}", [""] + st.session_state['brokers'], key=f"s{i}") for i in range(1, 6)]
             
         if st.button("🚀 Proses Data ke Sistem", width='stretch'):
-            if not emiten:
-                st.warning("Kode Emiten wajib diisi!")
-            else:
-                with st.spinner("Memproses data ke Spreadsheet... (Mohon tunggu)"):
-                    payload = {
-                        "action": "input_data", "emiten": emiten, "total_net_buy": total_net_buy,
-                        "by1": by1, "by2": by2, "by3": by3, "by4": by4, "by5": by5,
-                        "sl1": sl1, "sl2": sl2, "sl3": sl3, "sl4": sl4, "sl5": sl5
-                    }
+            if emiten:
+                with st.spinner("Memproses data..."):
+                    payload = {"action": "input_data", "emiten": emiten, "total_net_buy": total_net_buy, "by1": b1, "by2": b2, "by3": b3, "by4": b4, "by5": b5, "sl1": s1, "sl2": s2, "sl3": s3, "sl4": s4, "sl5": s5}
                     try:
-                        response = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                        if response.status_code == 200 and "success" in response.text:
-                            st.session_state['hasil_analisis'] = response.json()
+                        res = requests.post(GAS_URL, json=payload, allow_redirects=True)
+                        if res.status_code == 200:
+                            st.session_state['hasil_analisis'] = res.json()
                             st.session_state['emiten'] = emiten
                             st.success(f"Data {emiten} berhasil diproses!")
-                        else:
-                            st.error("Gagal memproses data ke Spreadsheet.")
-                    except Exception as e:
-                        st.error("Gagal terhubung ke server.")
+                    except: st.error("Gagal terhubung.")
                         
         if 'hasil_analisis' in st.session_state:
-            st.markdown("---")
             res = st.session_state['hasil_analisis']
-            st.subheader(f"💡 Hasil Analisis: {st.session_state['emiten']}")
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            kpi1.metric("Scor Beli Bandar", f"{res.get('scor_beli', 0)}")
-            kpi2.metric("Scor Jual Ritel", f"{res.get('scor_jual', 0)}")
-            kpi3.metric("Status SPK", res.get('status_spk', '-'))
-            kpi4.metric("Grade", res.get('grade', '-'))
-            
-            st.write("### Trading Plan Screener")
-            tp1, tp2, tp3, tp4, tp5 = st.columns(5)
-            tp1.metric("Entry Price", res.get('entry_price', 0))
-            tp2.metric("Target Price 1", res.get('tp1', 0))
-            tp3.metric("Target Price 2", res.get('tp2', 0))
-            tp4.metric("Target Price 3", res.get('tp3', 0))
-            tp5.metric("Cutloss Price", res.get('cutloss', 0))
             st.markdown("---")
-            st.subheader("📒 Simpan ke Log Book")
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Scor Beli", res.get('scor_beli', 0)); k2.metric("Scor Jual", res.get('scor_jual', 0))
+            k3.metric("Status SPK", res.get('status_spk', '-')); k4.metric("Grade", res.get('grade', '-'))
+            
+            st.write("### Trading Plan")
+            t1, t2, t3, t4, t5 = st.columns(5)
+            t1.metric("Entry", res.get('entry_price', 0)); t2.metric("TP 1", res.get('tp1', 0))
+            t3.metric("TP 2", res.get('tp2', 0)); t4.metric("TP 3", res.get('tp3', 0)); t5.metric("Cutloss", res.get('cutloss', 0))
+            
+            st.markdown("---")
             with st.form("log_book_form"):
-                tanggal = st.date_input("Tanggal Pantauan", datetime.today())
-                submit_log = st.form_submit_button("Simpan Data ke Log Book", width='stretch')
-                if submit_log:
-                    with st.spinner("Menyimpan ke Log Book..."):
-                        log_payload = {
-                            "action": "save_logbook", "username": st.session_state['username'],
-                            "emiten": st.session_state['emiten'], "entry_price": res.get('entry_price', 0),
-                            "tp1": res.get('tp1', 0), "tp2": res.get('tp2', 0),
-                            "tp3": res.get('tp3', 0), "cutloss": res.get('cutloss', 0),
-                            "grade": res.get('grade', '-'), "tanggal": tanggal.strftime("%Y-%m-%d")
-                        }
-                        try:
-                            response_log = requests.post(GAS_URL, json=log_payload, allow_redirects=True)
-                            if response_log.status_code == 200 and "success" in response_log.text:
-                                st.success(f"Trading plan {st.session_state['emiten']} berhasil dicatat di Log Book!")
-                            else:
-                                st.error("Gagal menyimpan ke Log Book.")
-                        except Exception as e:
-                            st.error("Gagal terhubung ke server.")
-                            
+                col_tgl, col_lot = st.columns(2)
+                with col_tgl: tanggal = st.date_input("Tanggal Pantauan", datetime.today())
+                with col_lot: lot_beli = st.number_input("Jumlah Lot", min_value=1, step=1, value=10) # MONEY MANAGEMENT FITUR
+                
+                if st.form_submit_button("Simpan ke Log Book", width='stretch'):
+                    payload = {
+                        "action": "save_logbook", "username": st.session_state['username'], "emiten": st.session_state['emiten'],
+                        "entry_price": res.get('entry_price', 0), "tp1": res.get('tp1', 0), "tp2": res.get('tp2', 0),
+                        "tp3": res.get('tp3', 0), "cutloss": res.get('cutloss', 0), "grade": res.get('grade', '-'),
+                        "tanggal": tanggal.strftime("%Y-%m-%d"), "lot": lot_beli
+                    }
+                    try:
+                        if requests.post(GAS_URL, json=payload, allow_redirects=True).status_code == 200:
+                            st.success("Tersimpan di Log Book!")
+                    except: st.error("Gagal menyimpan.")
+
+    # --- TAB 2: DASHBOARD LOG BOOK ---
     with tab2:
-        col_title, col_btn = st.columns([3, 1])
-        with col_title:
-            st.subheader("Tabel Pantauan Saham Aktif")
-        with col_btn:
-            refresh = st.button("🔄 Refresh Data Log Book", width='stretch')
+        c_title, c_btn = st.columns([3, 1])
+        with c_title: st.subheader("Pantauan Portofolio Aktif")
+        with c_btn: refresh = st.button("🔄 Refresh Harga Real-Time", width='stretch')
             
         if refresh or 'logbook_data' not in st.session_state:
-            with st.spinner("Mengambil data Log Book terbaru..."):
+            with st.spinner("Mengambil harga instan dari market..."):
                 try:
-                    logbook_response = requests.post(GAS_URL, json={"action": "get_logbook", "username": st.session_state['username']}, allow_redirects=True)
-                    if logbook_response.status_code == 200:
-                        data_json = logbook_response.json()
-                        if data_json.get("status") == "success":
-                            st.session_state['logbook_data'] = data_json.get("data", [])
-                        else:
-                            st.error("Gagal memuat data dari Spreadsheet.")
-                except Exception as e:
-                    st.error("Terjadi kesalahan koneksi saat mengambil data.")
+                    log_res = requests.post(GAS_URL, json={"action": "get_logbook", "username": st.session_state['username']}, allow_redirects=True)
+                    if log_res.status_code == 200:
+                        raw_data = log_res.json().get("data", [])
+                        
+                        # FITUR BYPASS REAL-TIME & TRAILING STOP
+                        if raw_data:
+                            emiten_list = [d["Emiten"] + ".JK" for d in raw_data]
+                            market_data = yf.download(emiten_list, period="1d", group_by="ticker", threads=True, progress=False)
+                            
+                            for row in raw_data:
+                                em_code = row["Emiten"] + ".JK"
+                                try:
+                                    if len(emiten_list) == 1: live_price = float(market_data['Close'].iloc[-1])
+                                    else: live_price = float(market_data[em_code]['Close'].iloc[-1])
+                                except: live_price = float(row["Live Price"] if row["Live Price"] else 0) # Failsafe
+                                
+                                row["Live Price"] = live_price
+                                entry = float(row["Entry Price"])
+                                lot = float(row["Lot"])
+                                tp1 = float(row["TP 1"])
+                                tp3 = float(row["TP 3"])
+                                cl = float(row["Cutloss Price"])
+                                
+                                # Kalkulasi Rp
+                                pnl_rp = (live_price - entry) * lot * 100
+                                row["Profit (Rp)"] = f"Rp {pnl_rp:,.0f}"
+                                row["Persentase"] = f"{((live_price - entry) / entry * 100):.2f}%" if entry > 0 else "0%"
+                                
+                                # Trailing Stop Logic
+                                if live_price >= tp3: row["Status"] = "🚀 TP 3 HIT!"
+                                elif live_price >= float(row["TP 2"]): row["Status"] = "🔥 TP 2 HIT!"
+                                elif live_price >= tp1: row["Status"] = "🛡️ RISK-FREE" # FITUR TRAILING STOP
+                                elif live_price <= cl: row["Status"] = "🚨 CUTLOSS!"
+                                else: row["Status"] = "⏳ HOLD"
+                                
+                        st.session_state['logbook_data'] = raw_data
+                except Exception as e: st.error("Kesalahan jaringan.")
                     
         if 'logbook_data' in st.session_state:
             df_logbook = pd.DataFrame(st.session_state['logbook_data'])
             if not df_logbook.empty:
-                total_saham = len(df_logbook)
-                hold_count = len(df_logbook[df_logbook['Status'].astype(str).str.contains("HOLD", case=False, na=False)])
-                tp_count = len(df_logbook[df_logbook['Status'].astype(str).str.contains("TP", case=False, na=False)])
-                cl_count = len(df_logbook[df_logbook['Status'].astype(str).str.contains("CUTLOSS", case=False, na=False)])
-                
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric("📌 Total Emiten", total_saham)
-                m2.metric("⏳ Status HOLD", hold_count)
-                m3.metric("🚀 Kena TP", tp_count)
-                m4.metric("🚨 Kena Cutloss", cl_count)
+                m1.metric("📌 Saham Dipantau", len(df_logbook))
+                m2.metric("⏳ HOLD / RISK-FREE", len(df_logbook[df_logbook['Status'].str.contains("HOLD|RISK", case=False, na=False)]))
+                m3.metric("🚀 Kena TP", len(df_logbook[df_logbook['Status'].str.contains("TP", case=False, na=False)]))
+                m4.metric("🚨 Kena Cutloss", len(df_logbook[df_logbook['Status'].str.contains("CUTLOSS", case=False, na=False)]))
                 
                 st.markdown("---")
-                f1, f2 = st.columns(2)
-                with f1:
-                    search_query = st.text_input("🔍 Cari Kode Emiten", "")
-                with f2:
-                    status_filter = st.selectbox("📂 Filter Status", ["Semua", "HOLD", "TP", "CUTLOSS"])
-                    
-                if search_query:
-                    df_logbook = df_logbook[df_logbook['Emiten'].astype(str).str.contains(search_query.upper(), na=False)]
-                if status_filter != "Semua":
-                    df_logbook = df_logbook[df_logbook['Status'].astype(str).str.contains(status_filter, case=False, na=False)]
-                    
-                def style_dataframe(df):
-                    def highlight_status(val):
-                        val_str = str(val).upper()
-                        if 'TP' in val_str:
-                            return 'background-color: rgba(39, 174, 96, 0.2); color: #2ecc71; font-weight: bold;'
-                        elif 'CUTLOSS' in val_str:
-                            return 'background-color: rgba(192, 57, 43, 0.2); color: #e74c3c; font-weight: bold;'
-                        elif 'HOLD' in val_str:
-                            return 'color: #f39c12; font-weight: bold;'
+                def style_df(df):
+                    def highlight(val):
+                        v = str(val).upper()
+                        if 'TP' in v: return 'background-color: rgba(39, 174, 96, 0.2); color: #2ecc71; font-weight:bold;'
+                        if 'CUTLOSS' in v or '-' in v: return 'color: #e74c3c; font-weight:bold;'
+                        if 'RISK' in v: return 'background-color: rgba(41, 128, 185, 0.2); color: #3498db; font-weight:bold;'
+                        if 'HOLD' in v: return 'color: #f39c12; font-weight:bold;'
+                        if v.replace('.','',1).replace('%','').isdigit() and float(v.replace('%','')) > 0: return 'color: #2ecc71; font-weight:bold;'
                         return ''
-                    def highlight_persentase(val):
-                        val_str = str(val)
-                        if '-' in val_str:
-                            return 'color: #e74c3c; font-weight: bold;'
-                        elif val_str.strip() != '' and val_str != 'nan':
-                            return 'color: #2ecc71; font-weight: bold;'
-                        return ''
-                    try:
-                        return df.style.map(highlight_status, subset=['Status']).map(highlight_persentase, subset=['Persentase'])
-                    except AttributeError:
-                        return df.style.applymap(highlight_status, subset=['Status']).applymap(highlight_persentase, subset=['Persentase'])
+                    try: return df.style.map(highlight, subset=['Status', 'Persentase', 'Profit (Rp)'])
+                    except: return df.style.applymap(highlight, subset=['Status', 'Persentase', 'Profit (Rp)'])
                         
-                st.dataframe(style_dataframe(df_logbook), width='stretch', hide_index=True, height=400)
+                st.dataframe(style_df(df_logbook), width='stretch', hide_index=True)
                 st.markdown("---")
                 
-                # --- MANAJEMEN LOG BOOK: HAPUS & PINDAH JURNAL ---
-                st.subheader("⚙️ Manajemen Log Book")
+                # FITUR MANAJEMEN: EDIT & HAPUS
                 emiten_list = df_logbook['Emiten'].tolist()
+                c1, c2, c3 = st.columns(3)
                 
-                col_man1, col_man2 = st.columns(2)
-                with col_man1:
-                    st.markdown("#### 🗑 Hapus Data (Salah Input)")
-                    st.caption("Gunakan ini jika Anda salah ketik/input dan ingin menghapus permanen.")
-                    if emiten_list:
-                        del_emiten = st.selectbox("Pilih Emiten untuk dihapus:", emiten_list, key="del_em")
-                        if st.button("Hapus Emiten", width='stretch'):
-                            with st.spinner("Menghapus data..."):
-                                payload = {"action": "delete_logbook", "username": st.session_state['username'], "emiten": del_emiten}
-                                try:
-                                    res_del = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                                    if res_del.status_code == 200 and res_del.json().get("status") == "success":
-                                        st.success(f"{del_emiten} berhasil dihapus dari Log Book!")
-                                        st.session_state.pop('logbook_data', None)
-                                        st.rerun()
-                                    else:
-                                        st.error("Gagal menghapus data.")
-                                except Exception as e:
-                                    st.error("Terjadi kesalahan koneksi.")
-                
-                with col_man2:
-                    st.markdown("#### 🏆 Selesai Trading (Pindah ke Jurnal)")
-                    st.caption("Pindahkan saham yang sudah kena TP/Cutloss ke Jurnal Performa.")
-                    if emiten_list:
-                        move_emiten = st.selectbox("Pilih Emiten yang sudah Selesai:", emiten_list, key="move_em")
-                        if st.button("Arsipkan ke Jurnal", width='stretch', type='primary'):
-                            with st.spinner("Memindahkan ke History Trading..."):
-                                payload = {"action": "move_to_history", "username": st.session_state['username'], "emiten": move_emiten}
-                                try:
-                                    res_move = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                                    if res_move.status_code == 200 and res_move.json().get("status") == "success":
-                                        st.success(f"{move_emiten} berhasil dipindahkan ke Jurnal!")
-                                        st.session_state.pop('logbook_data', None)
-                                        st.session_state.pop('history_data', None) # Force refresh history
-                                        st.rerun()
-                                    else:
-                                        st.error("Gagal memindahkan data.")
-                                except Exception as e:
-                                    st.error("Terjadi kesalahan koneksi.")
+                with c1:
+                    st.markdown("#### ✏️ Edit (Avg Up/Down)")
+                    edit_em = st.selectbox("Pilih Saham", emiten_list, key="ed")
+                    with st.expander("Buka Form Edit"):
+                        if edit_em:
+                            curr_data = df_logbook[df_logbook['Emiten'] == edit_em].iloc[0]
+                            new_entry = st.number_input("Avg Entry Baru", value=float(curr_data['Entry Price']))
+                            new_lot = st.number_input("Lot Baru", value=int(curr_data['Lot']), step=1)
+                            new_tp1 = st.number_input("TP 1 Baru", value=float(curr_data['TP 1']))
+                            new_tp2 = st.number_input("TP 2 Baru", value=float(curr_data['TP 2']))
+                            new_tp3 = st.number_input("TP 3 Baru", value=float(curr_data['TP 3']))
+                            new_cl = st.number_input("Cutloss Baru", value=float(curr_data['Cutloss Price']))
+                            if st.button("Update Data", width='stretch'):
+                                with st.spinner("Menyimpan..."):
+                                    payload = {"action": "update_logbook", "username": st.session_state['username'], "emiten": edit_em, "entry_price": new_entry, "lot": new_lot, "tp1": new_tp1, "tp2": new_tp2, "tp3": new_tp3, "cutloss": new_cl}
+                                    requests.post(GAS_URL, json=payload)
+                                    st.session_state.pop('logbook_data', None)
+                                    st.rerun()
 
-            else:
-                st.info("📂 Log Book Anda masih kosong. Hasil simpanan Anda akan masuk kemari.")
+                with c2:
+                    st.markdown("#### 🏆 Selesai Trading")
+                    move_em = st.selectbox("Arsipkan ke Jurnal", emiten_list, key="mv")
+                    if st.button("Pindah ke Jurnal", width='stretch', type='primary'):
+                        with st.spinner("Memindahkan..."):
+                            requests.post(GAS_URL, json={"action": "move_to_history", "username": st.session_state['username'], "emiten": move_em})
+                            st.session_state.pop('logbook_data', None); st.session_state.pop('history_data', None)
+                            st.rerun()
 
-    # --- TAB 3: EVALUASI PERFORMA TRADING ---
+                with c3:
+                    st.markdown("#### 🗑 Hapus Data")
+                    del_em = st.selectbox("Hapus Permanen", emiten_list, key="dl")
+                    if st.button("Hapus Emiten", width='stretch'):
+                        with st.spinner("Menghapus..."):
+                            requests.post(GAS_URL, json={"action": "delete_logbook", "username": st.session_state['username'], "emiten": del_em})
+                            st.session_state.pop('logbook_data', None)
+                            st.rerun()
+
+    # --- TAB 3: JURNAL & PERFORMA ---
     with tab3:
-        col_htitle, col_hbtn = st.columns([3, 1])
-        with col_htitle:
-            st.subheader("Kalkulator Win-Rate & Rekam Jejak")
-        with col_hbtn:
-            refresh_hist = st.button("🔄 Refresh Jurnal", width='stretch')
+        c_ht, c_hb = st.columns([3, 1])
+        with c_ht: st.subheader("Kalkulator Win-Rate & Rekam Jejak")
+        with c_hb: refresh_hist = st.button("🔄 Refresh Jurnal", width='stretch')
             
         if refresh_hist or 'history_data' not in st.session_state:
             with st.spinner("Mengambil data Jurnal..."):
-                try:
-                    hist_response = requests.post(GAS_URL, json={"action": "get_history", "username": st.session_state['username']}, allow_redirects=True)
-                    if hist_response.status_code == 200:
-                        data_hist = hist_response.json()
-                        if data_hist.get("status") == "success":
-                            st.session_state['history_data'] = data_hist.get("data", [])
-                        else:
-                            st.error("Gagal memuat Jurnal.")
-                except Exception as e:
-                    st.error("Terjadi kesalahan koneksi.")
+                hist_response = requests.post(GAS_URL, json={"action": "get_history", "username": st.session_state['username']}, allow_redirects=True)
+                if hist_response.status_code == 200:
+                    st.session_state['history_data'] = hist_response.json().get("data", [])
                     
         if 'history_data' in st.session_state:
             df_hist = pd.DataFrame(st.session_state['history_data'])
             if not df_hist.empty:
-                # --- KALKULASI METRIK PERFORMA ---
-                total_trades = len(df_hist)
-                win_trades = len(df_hist[df_hist['Status'].astype(str).str.contains("TP", case=False, na=False)])
-                loss_trades = len(df_hist[df_hist['Status'].astype(str).str.contains("CUTLOSS", case=False, na=False)])
+                tot_trades = len(df_hist)
+                win_trades = len(df_hist[df_hist['Status'].str.contains("TP|RISK", case=False, na=False)])
+                loss_trades = len(df_hist[df_hist['Status'].str.contains("CUTLOSS", case=False, na=False)])
                 
-                win_rate = (win_trades / total_trades) * 100 if total_trades > 0 else 0
-                avg_profit_loss = df_hist['Persentase_Num'].mean()
+                # Kalkulasi Rp di History
+                total_pnl_rp = 0
+                for idx, row in df_hist.iterrows():
+                    entry = float(row['Entry Price'])
+                    live = float(row['Live Price'])
+                    lot = float(row['Lot'])
+                    pnl = (live - entry) * lot * 100
+                    total_pnl_rp += pnl
+                    df_hist.at[idx, 'Profit (Rp)'] = f"Rp {pnl:,.0f}"
+
+                win_rate = (win_trades / tot_trades) * 100 if tot_trades > 0 else 0
                 
-                st.markdown("### 📈 Ringkasan Performa")
-                met1, met2, met3, met4 = st.columns(4)
-                met1.metric("⚖️ Total Trading", f"{total_trades} Saham")
-                met2.metric("🏆 Total Menang (TP)", f"{win_trades} Kali")
-                met3.metric("💔 Total Kalah (Cutloss)", f"{loss_trades} Kali")
-                
-                # Format warna Win-Rate dan Rata-rata PnL
-                wr_color = "normal" if win_rate >= 50 else "inverse"
-                met4.metric("🎯 Win Rate", f"{win_rate:.1f}%", delta=f"Rata-rata PnL: {avg_profit_loss:.2f}%", delta_color=wr_color)
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("⚖️ Total Trading", f"{tot_trades} Saham")
+                m2.metric("🏆 Menang (TP)", f"{win_trades} Kali")
+                m3.metric("🎯 Win Rate", f"{win_rate:.1f}%")
+                m4.metric("💰 Total PnL (Rupiah)", f"Rp {total_pnl_rp:,.0f}", delta="Profit Bersih" if total_pnl_rp > 0 else "Rugi", delta_color="normal" if total_pnl_rp > 0 else "inverse")
                 
                 st.markdown("---")
-                st.write("### 📜 Riwayat Transaksi")
-                
-                # Menampilkan tabel tanpa kolom bantu angka (Persentase_Num)
-                df_hist_display = df_hist.drop(columns=['Persentase_Num'])
-                
-                def style_hist(df):
-                    def h_status(val):
-                        val_str = str(val).upper()
-                        if 'TP' in val_str: return 'color: #2ecc71; font-weight: bold;'
-                        elif 'CUTLOSS' in val_str: return 'color: #e74c3c; font-weight: bold;'
-                        return ''
-                    def h_pct(val):
-                        if '-' in str(val): return 'color: #e74c3c; font-weight: bold;'
-                        elif str(val).strip() != '' and str(val) != 'nan': return 'color: #2ecc71; font-weight: bold;'
-                        return ''
-                    try:
-                        return df.style.map(h_status, subset=['Status']).map(h_pct, subset=['Persentase'])
-                    except AttributeError:
-                        return df.style.applymap(h_status, subset=['Status']).applymap(h_pct, subset=['Persentase'])
-                
-                st.dataframe(style_hist(df_hist_display), width='stretch', hide_index=True)
-                
-            else:
-                st.info("📭 Jurnal Anda masih kosong. Pindahkan saham yang sudah selesai dari Log Book ke sini untuk melihat performa Win-Rate Anda.")
+                df_hist_disp = df_hist.drop(columns=['Persentase_Num', 'Entry Price', 'Live Price'])
+                st.dataframe(df_hist_disp, width='stretch', hide_index=True)
