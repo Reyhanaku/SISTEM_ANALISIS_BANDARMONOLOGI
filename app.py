@@ -5,7 +5,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Sistem Analisis ", page_icon="📈", layout="wide")
 
-GAS_URL = "MASUKKAN_URL_WEB_APP_APPSCRIPT_ANDA_DISINI"
+GAS_URL = "https://script.google.com/macros/s/AKfycbztzJL_waRDfHgmfgxLZN4em1N6RikwOBAvv7Q-9csLxWCOGAbFPUh219JAmP4Tgw/exec"
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
