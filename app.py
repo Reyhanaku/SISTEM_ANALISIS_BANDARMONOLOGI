@@ -3,13 +3,10 @@ import requests
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Sistem Analisis ", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Sistem Analisis", page_icon="📈", layout="wide")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbztzJL_waRDfHgmfgxLZN4em1N6RikwOBAvv7Q-9csLxWCOGAbFPUh219JAmP4Tgw/exec"
 
-# ==========================================
-# INISIALISASI SESSION STATE
-# ==========================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 if 'username' not in st.session_state:
@@ -17,16 +14,11 @@ if 'username' not in st.session_state:
 if 'brokers' not in st.session_state:
     st.session_state['brokers'] = []
 
-# ==========================================
-# HALAMAN LOGIN / REGISTER / LUPA PASSWORD
-# ==========================================
 if not st.session_state['logged_in']:
     st.title("🔐 Akses Sistem SPK Saham")
     
-    # Membagi area menjadi 3 tab
     tab_login, tab_register, tab_forgot = st.tabs(["🔑 Masuk", "📝 Daftar Akun", "🆘 Lupa Password"])
     
-    # --- TAB 1: LOGIN ---
     with tab_login:
         st.markdown("Silakan masuk jika Anda sudah memiliki akun.")
         with st.form("login_form"):
@@ -56,7 +48,6 @@ if not st.session_state['logged_in']:
                         except Exception as e:
                             st.error("Terjadi kesalahan koneksi.")
 
-    # --- TAB 2: DAFTAR MANDIRI ---
     with tab_register:
         st.markdown("Belum punya akun? Daftarkan diri Anda di sini secara gratis.")
         with st.form("register_form"):
@@ -85,7 +76,6 @@ if not st.session_state['logged_in']:
                         except Exception as e:
                             st.error("Terjadi kesalahan koneksi saat mendaftar.")
 
-    # --- TAB 3: LUPA PASSWORD ---
     with tab_forgot:
         st.markdown("Lupa password? Masukkan username Anda dan kami akan mengirimkan password ke email yang terdaftar.")
         with st.form("forgot_form"):
@@ -109,11 +99,7 @@ if not st.session_state['logged_in']:
                         except Exception as e:
                             st.error("Terjadi kesalahan koneksi.")
 
-# ==========================================
-# HALAMAN UTAMA (JIKA SUDAH LOGIN)
-# ==========================================
 else:
-    # Tarik data broker jika kosong
     if not st.session_state['brokers']:
         try:
             res = requests.get(GAS_URL)
@@ -122,18 +108,17 @@ else:
         except:
             st.session_state['brokers'] = []
 
-    # Header dengan Tombol Logout
     col_title, col_logout = st.columns([5, 1])
     with col_title:
         st.title("📊 Sistem Analisis Bandarmologi IHSG")
     with col_logout:
-        st.write("") # Spacer vertikal
+        st.write("") 
         if st.button("🚪 Logout", width='stretch'):
             st.session_state['logged_in'] = False
             st.session_state['username'] = ''
             st.rerun()
 
-    st.markdown(f"Selamat datang, **{st.session_state['username']}**. Berikut adalah *dashboard trading* pribadi Anda.")
+    st.markdown(f"Selamat datang, **{st.session_state['username']}**. Berikut adalah dashboard trading pribadi Anda.")
     st.markdown("---")
 
     tab1, tab2 = st.tabs(["💰💰💰 Input Data & Analisis", "🎯 Dashboard Log Book"])
@@ -304,6 +289,30 @@ else:
                         return df.style.applymap(highlight_status, subset=['Status']).applymap(highlight_persentase, subset=['Persentase'])
 
                 st.dataframe(style_dataframe(df_logbook), width='stretch', hide_index=True, height=500)
+
+                st.markdown("---")
+                st.subheader("🗑️ Hapus Data Log Book")
+                emiten_list = df_logbook['Emiten'].tolist()
+                
+                if emiten_list:
+                    del_emiten = st.selectbox("Pilih Emiten yang ingin dihapus:", emiten_list)
+                    if st.button("Hapus Emiten", width='stretch'):
+                        with st.spinner("Menghapus data..."):
+                            payload = {
+                                "action": "delete_logbook", 
+                                "username": st.session_state['username'], 
+                                "emiten": del_emiten
+                            }
+                            try:
+                                res_del = requests.post(GAS_URL, json=payload, allow_redirects=True)
+                                if res_del.status_code == 200 and res_del.json().get("status") == "success":
+                                    st.success(f"{del_emiten} berhasil dihapus dari Log Book!")
+                                    st.session_state.pop('logbook_data', None)
+                                    st.rerun()
+                                else:
+                                    st.error("Gagal menghapus data.")
+                            except Exception as e:
+                                st.error("Terjadi kesalahan koneksi.")
                 
             else:
-                st.info("📂 Log Book Anda masih kosong. Hasil simpangan Anda akan masuk kemari dan 100% aman (privat).")
+                st.info("📂 Log Book Anda masih kosong. Hasil simpanan Anda akan masuk kemari dan 100% aman (privat).")
