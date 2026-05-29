@@ -7,6 +7,9 @@ st.set_page_config(page_title="Sistem Analisis ", page_icon="📈", layout="wide
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbztzJL_waRDfHgmfgxLZN4em1N6RikwOBAvv7Q-9csLxWCOGAbFPUh219JAmP4Tgw/exec"
 
+# ==========================================
+# INISIALISASI SESSION STATE
+# ==========================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 if 'username' not in st.session_state:
@@ -14,38 +17,103 @@ if 'username' not in st.session_state:
 if 'brokers' not in st.session_state:
     st.session_state['brokers'] = []
 
+# ==========================================
+# HALAMAN LOGIN / REGISTER / LUPA PASSWORD
+# ==========================================
 if not st.session_state['logged_in']:
-    st.title("🔐 Login Sistem SPK Saham")
-    st.markdown("Silakan masuk menggunakan kredensial yang telah didaftarkan administrator.")
+    st.title("🔐 Akses Sistem SPK Saham")
     
-    with st.form("login_form"):
-        username_input = st.text_input("Username")
-        password_input = st.text_input("Password", type="password")
-        submit_login = st.form_submit_button("Masuk", width='stretch')
-        
-        if submit_login:
-            if not username_input or not password_input:
-                st.warning("Username dan Password wajib diisi!")
-            else:
-                with st.spinner("Memverifikasi data..."):
-                    payload = {"action": "login", "username": username_input, "password": password_input}
-                    try:
-                        res = requests.post(GAS_URL, json=payload, allow_redirects=True)
-                        if res.status_code == 200:
-                            data = res.json()
-                            if data.get("status") == "success":
-                                st.session_state['logged_in'] = True
-                                st.session_state['username'] = username_input
-                                st.success("Login berhasil!")
-                                st.rerun()
+    # Membagi area menjadi 3 tab
+    tab_login, tab_register, tab_forgot = st.tabs(["🔑 Masuk", "📝 Daftar Akun", "🆘 Lupa Password"])
+    
+    # --- TAB 1: LOGIN ---
+    with tab_login:
+        st.markdown("Silakan masuk jika Anda sudah memiliki akun.")
+        with st.form("login_form"):
+            username_input = st.text_input("Username")
+            password_input = st.text_input("Password", type="password")
+            submit_login = st.form_submit_button("Masuk", width='stretch')
+            
+            if submit_login:
+                if not username_input or not password_input:
+                    st.warning("Username dan Password wajib diisi!")
+                else:
+                    with st.spinner("Memverifikasi data..."):
+                        payload = {"action": "login", "username": username_input, "password": password_input}
+                        try:
+                            res = requests.post(GAS_URL, json=payload, allow_redirects=True)
+                            if res.status_code == 200:
+                                data = res.json()
+                                if data.get("status") == "success":
+                                    st.session_state['logged_in'] = True
+                                    st.session_state['username'] = username_input
+                                    st.success("Login berhasil!")
+                                    st.rerun()
+                                else:
+                                    st.error(data.get("message", "Gagal login."))
                             else:
-                                st.error(data.get("message", "Gagal login."))
-                        else:
-                            st.error("Gagal terhubung ke database Spreadsheet.")
-                    except Exception as e:
-                        st.error("Terjadi kesalahan koneksi.")
+                                st.error("Gagal terhubung ke database Spreadsheet.")
+                        except Exception as e:
+                            st.error("Terjadi kesalahan koneksi.")
 
+    # --- TAB 2: DAFTAR MANDIRI ---
+    with tab_register:
+        st.markdown("Belum punya akun? Daftarkan diri Anda di sini secara gratis.")
+        with st.form("register_form"):
+            new_user = st.text_input("Buat Username")
+            new_email = st.text_input("Alamat Email (Harus Aktif)")
+            new_pass = st.text_input("Buat Password", type="password")
+            conf_pass = st.text_input("Konfirmasi Password", type="password")
+            submit_register = st.form_submit_button("Daftar Sekarang", width='stretch')
+            
+            if submit_register:
+                if not new_user or not new_email or not new_pass:
+                    st.warning("Semua kolom (Username, Email, Password) wajib diisi!")
+                elif new_pass != conf_pass:
+                    st.error("Password dan Konfirmasi Password tidak cocok!")
+                else:
+                    with st.spinner("Mendaftarkan akun..."):
+                        payload = {"action": "register", "username": new_user, "password": new_pass, "email": new_email}
+                        try:
+                            res = requests.post(GAS_URL, json=payload, allow_redirects=True)
+                            if res.status_code == 200:
+                                data = res.json()
+                                if data.get("status") == "success":
+                                    st.success(data.get("message"))
+                                else:
+                                    st.error(data.get("message"))
+                        except Exception as e:
+                            st.error("Terjadi kesalahan koneksi saat mendaftar.")
+
+    # --- TAB 3: LUPA PASSWORD ---
+    with tab_forgot:
+        st.markdown("Lupa password? Masukkan username Anda dan kami akan mengirimkan password ke email yang terdaftar.")
+        with st.form("forgot_form"):
+            f_user = st.text_input("Masukkan Username Anda")
+            submit_forgot = st.form_submit_button("Kirim Password via Email", width='stretch')
+            
+            if submit_forgot:
+                if not f_user:
+                    st.warning("Username wajib diisi untuk mencari akun Anda!")
+                else:
+                    with st.spinner("Mencari akun dan mengirim email... (Mohon tunggu beberapa detik)"):
+                        payload = {"action": "forgot_password", "username": f_user}
+                        try:
+                            res = requests.post(GAS_URL, json=payload, allow_redirects=True)
+                            if res.status_code == 200:
+                                data = res.json()
+                                if data.get("status") == "success":
+                                    st.success(data.get("message"))
+                                else:
+                                    st.error(data.get("message"))
+                        except Exception as e:
+                            st.error("Terjadi kesalahan koneksi.")
+
+# ==========================================
+# HALAMAN UTAMA (JIKA SUDAH LOGIN)
+# ==========================================
 else:
+    # Tarik data broker jika kosong
     if not st.session_state['brokers']:
         try:
             res = requests.get(GAS_URL)
@@ -54,6 +122,7 @@ else:
         except:
             st.session_state['brokers'] = []
 
+    # Header dengan Tombol Logout
     col_title, col_logout = st.columns([5, 1])
     with col_title:
         st.title("📊 Sistem Analisis Bandarmologi IHSG")
