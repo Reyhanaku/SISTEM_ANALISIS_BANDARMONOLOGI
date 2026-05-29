@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 import yfinance as yf
 import plotly.graph_objects as go
+import pandas_ta as ta  # LIBRARY BARU UNTUK INDIKATOR PROFESIONAL
 
 st.set_page_config(page_title="Dasbor Trading", page_icon="💎", layout="wide")
 
@@ -103,7 +104,7 @@ else:
     st.markdown(f"Selamat datang, **{st.session_state['username']}**.")
     st.markdown("---")
     
-    tab1, tab2, tab3, tab4 = st.tabs(["💰 Input Data", "🎯 Log Book", "🏆 Jurnal", "📡 Radar Screener"])
+    tab1, tab2, tab3, tab4 = st.tabs(["💰 Input Data", "🎯 Log Book", "🏆 Jurnal", "📡 Radar Screener Pro"])
     
     with tab1:
         st.subheader("Input Data Analisis")
@@ -339,51 +340,125 @@ else:
                 st.dataframe(df_hist_disp, use_container_width=True, hide_index=True)
 
     with tab4:
-        st.subheader("📡 Radar Screener (Momentum Teknikal & Volume)")
-        st.markdown("Fitur ini memindai saham secara massal dan *real-time* untuk mendeteksi momentum teknikal (Trend & Lonjakan Volume) dalam hitungan detik.")
+        st.subheader("📡 Radar Screener Pro (Teknikal, Volume & Indikator)")
+        st.markdown("Pindai ratusan saham sekaligus! Sistem otomatis menghitung momentum, indikator RSI, MACD, Stochastic, serta memburu formasi ✨ **Golden Cross** berdasarkan gaya trading Anda.")
         
-        saham_list = st.text_input("Daftar Kode Saham (Pisahkan dengan koma)", "BBCA, BBRI, BMRI, BBNI, TLKM, ASII, GOTO, BUMI, AMMN, BREN")
-        if st.button("🚀 Mulai Radar Scan", use_container_width=True):
-            with st.spinner("Memindai pasar..."):
-                emiten_scan = [e.strip().upper() + ".JK" for e in saham_list.split(",")]
-                hasil_scan = []
-                
-                for e in emiten_scan:
-                    try:
-                        df_emiten = yf.Ticker(e).history(period="1mo")
-                        if not df_emiten.empty and len(df_emiten) > 2:
-                            c_price = float(df_emiten['Close'].iloc[-1])
-                            p_price = float(df_emiten['Close'].iloc[-2])
-                            v_today = float(df_emiten['Volume'].iloc[-1])
-                            v_mean = float(df_emiten['Volume'].mean())
+        # --- FITUR DROPDOWN INDEKS & TIMEFRAME ---
+        indeks_dict = {
+            "LQ45 (Saham Paling Likuid)": ["BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMMN", "BREN", "GOTO", "ADRO", "PTBA", "UNVR", "ICBP", "INDF", "KLBF", "PGAS", "AKRA", "MEDC", "BRIS", "ARTO"],
+            "IDX30 (Top 30)": ["BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMMN", "GOTO", "ADRO", "PTBA", "UNVR", "ICBP", "INDF", "KLBF"],
+            "Perbankan Besar": ["BBCA", "BBRI", "BMRI", "BBNI", "BRIS", "ARTO", "BBTN", "NISP", "BDMN"],
+            "Sektor Energi & Tambang": ["ADRO", "PTBA", "ITMG", "PGAS", "AKRA", "MEDC", "ENRG", "BUMI", "HRUM", "BRMS", "ANTM", "INCO", "MDKA"],
+            "Sektor Konsumer": ["UNVR", "ICBP", "INDF", "MYOR", "CMRY", "AMRT", "MIDI"],
+            "Custom (Ketik Manual)": []
+        }
+        
+        col_idx, col_time = st.columns(2)
+        with col_idx:
+            pilihan_indeks = st.selectbox("📂 Pilih Indeks / Sektor:", list(indeks_dict.keys()))
+        with col_time:
+            pilihan_waktu = st.selectbox("⏱️ Gaya Trading (Timeframe):", [
+                "Jangka Pendek (Scalp / Fast Swing) - MA5 vs MA20",
+                "Jangka Menengah (Swing) - MA20 vs MA50",
+                "Jangka Panjang (Position) - MA50 vs MA200"
+            ])
+            
+        if pilihan_indeks == "Custom (Ketik Manual)":
+            saham_input = st.text_input("Ketik Kode Saham (Pisahkan dengan koma):", "BBCA, BBRI, BUMI, GOTO")
+            saham_list = [s.strip().upper() for s in saham_input.split(",") if s.strip()]
+        else:
+            saham_list = indeks_dict[pilihan_indeks]
+            st.info(f"Sistem akan memindai {len(saham_list)} saham di dalam kategori {pilihan_indeks}.")
+
+        if st.button("🚀 Mulai Radar Scan", use_container_width=True, type="primary"):
+            if not saham_list:
+                st.warning("Daftar saham kosong!")
+            else:
+                with st.spinner("Sistem sedang mengkalkulasi indikator tingkat lanjut (Mohon tunggu)..."):
+                    emiten_scan = [e + ".JK" for e in saham_list]
+                    hasil_scan = []
+                    
+                    # Konfigurasi MA berdasarkan gaya trading
+                    if "Pendek" in pilihan_waktu: fast_ma, slow_ma = 5, 20
+                    elif "Menengah" in pilihan_waktu: fast_ma, slow_ma = 20, 50
+                    else: fast_ma, slow_ma = 50, 200
+                    
+                    for e in emiten_scan:
+                        try:
+                            # Unduh data 1 Tahun ke belakang untuk memastikan MA200 bisa dihitung
+                            df_emiten = yf.Ticker(e).history(period="1y", progress=False)
                             
-                            pct = ((c_price - p_price) / p_price) * 100
-                            v_spike = v_today > (v_mean * 1.5)
-                            trend = "UPTREND" if c_price > df_emiten['Close'].mean() else "DOWNTREND"
-                            
-                            status = "🔥 HOT (Beli)" if trend == "UPTREND" and v_spike and pct > 0 else "⏳ Pantau"
-                            if trend == "DOWNTREND" and pct < 0: status = "🚨 Hindari"
-                            
-                            hasil_scan.append({
-                                "Emiten": e.replace(".JK", ""),
-                                "Live Price": c_price,
-                                "Perubahan": f"{pct:.2f}%",
-                                "Trend": trend,
-                                "Volume": "Lonjakan Masif!" if v_spike else "Normal",
-                                "Rekomendasi": status
-                            })
-                    except:
-                        pass
-                
-                if hasil_scan:
-                    df_scan = pd.DataFrame(hasil_scan)
-                    def style_scan(val):
-                        v = str(val)
-                        if 'HOT' in v or 'Masif' in v or 'UPTREND' in v: return 'color: #2ecc71; font-weight:bold;'
-                        if 'Hindari' in v or 'DOWNTREND' in v or '-' in v: return 'color: #e74c3c; font-weight:bold;'
-                        if 'Pantau' in v or 'Normal' in v: return 'color: #f39c12; font-weight:bold;'
-                        return ''
-                    try: st.dataframe(df_scan.style.map(style_scan, subset=['Trend', 'Volume', 'Rekomendasi']), use_container_width=True, hide_index=True)
-                    except: st.dataframe(df_scan.style.applymap(style_scan, subset=['Trend', 'Volume', 'Rekomendasi']), use_container_width=True, hide_index=True)
-                else:
-                    st.warning("Gagal memindai saham. Pastikan format kode benar dan terdaftar di bursa IHSG.")
+                            # Cek apakah data valid dan cukup untuk menghitung MA terpanjang
+                            if not df_emiten.empty and len(df_emiten) > slow_ma:
+                                # Hitung Indikator dengan pandas-ta
+                                df_emiten.ta.rsi(length=14, append=True)
+                                df_emiten.ta.macd(fast=12, slow=26, signal=9, append=True)
+                                df_emiten.ta.stoch(append=True)
+                                df_emiten.ta.sma(length=fast_ma, append=True)
+                                df_emiten.ta.sma(length=slow_ma, append=True)
+                                
+                                # Mengambil data hari ini dan kemarin
+                                last = df_emiten.iloc[-1]
+                                prev = df_emiten.iloc[-2]
+                                
+                                c_price = float(last['Close'])
+                                p_price = float(prev['Close'])
+                                v_today = float(last['Volume'])
+                                v_mean = float(df_emiten['Volume'].tail(20).mean())
+                                
+                                pct = ((c_price - p_price) / p_price) * 100
+                                v_spike = v_today > (v_mean * 1.5)
+                                
+                                rsi = float(last['RSI_14'])
+                                macd = float(last['MACD_12_26_9'])
+                                macd_sig = float(last['MACDs_12_26_9'])
+                                stoch_k = float(last.get('STOCHk_14_3_3', 50))
+                                
+                                sma_f = float(last[f'SMA_{fast_ma}'])
+                                sma_s = float(last[f'SMA_{slow_ma}'])
+                                prev_sma_f = float(prev[f'SMA_{fast_ma}'])
+                                prev_sma_s = float(prev[f'SMA_{slow_ma}'])
+                                
+                                trend = "UPTREND" if c_price > sma_s else "DOWNTREND"
+                                
+                                # Logika Golden Cross: Kemarin MA Fast di bawah MA Slow, Hari ini MA Fast menembus ke atas MA Slow
+                                is_golden_cross = (prev_sma_f <= prev_sma_s) and (sma_f > sma_s)
+                                
+                                # Penentuan Status / Sinyal Cerdas
+                                status = "⏳ Pantau"
+                                if is_golden_cross:
+                                    status = "✨ GOLDEN CROSS"
+                                elif rsi > 70 or stoch_k > 80:
+                                    status = "⚠️ Overbought (Rawan Koreksi)"
+                                elif trend == "UPTREND" and v_spike and macd > macd_sig:
+                                    status = "🔥 HOT (Beli)"
+                                elif rsi < 30 or stoch_k < 20:
+                                    status = "📉 Oversold (Pantau Rebound)"
+                                elif trend == "DOWNTREND" and pct < 0:
+                                    status = "🚨 Hindari"
+                                
+                                hasil_scan.append({
+                                    "Emiten": e.replace(".JK", ""),
+                                    "Harga": f"{c_price:,.0f}",
+                                    "% Hari Ini": f"{pct:.2f}%",
+                                    "RSI": f"{rsi:.1f}",
+                                    "MACD": "Bullish" if macd > macd_sig else "Bearish",
+                                    "Volume": "Lonjakan!" if v_spike else "Normal",
+                                    "Sinyal Radar": status
+                                })
+                        except Exception as ex:
+                            pass
+                    
+                    if hasil_scan:
+                        df_scan = pd.DataFrame(hasil_scan)
+                        def style_scan(val):
+                            v = str(val).upper()
+                            if 'HOT' in v or 'GOLDEN' in v or 'BULLISH' in v or 'LONJAKAN' in v: return 'color: #2ecc71; font-weight:bold;'
+                            if 'HINDARI' in v or 'BEARISH' in v or 'OVERBOUGHT' in v or '-' in v: return 'color: #e74c3c; font-weight:bold;'
+                            if 'PANTAU' in v or 'OVERSOLD' in v or 'NORMAL' in v: return 'color: #f39c12; font-weight:bold;'
+                            return ''
+                        
+                        try: st.dataframe(df_scan.style.map(style_scan, subset=['RSI', 'MACD', 'Volume', 'Sinyal Radar', '% Hari Ini']), use_container_width=True, hide_index=True)
+                        except: st.dataframe(df_scan.style.applymap(style_scan, subset=['RSI', 'MACD', 'Volume', 'Sinyal Radar', '% Hari Ini']), use_container_width=True, hide_index=True)
+                    else:
+                        st.warning("Gagal memindai saham. Pastikan format kode benar atau saham memiliki riwayat data yang cukup panjang.")
