@@ -60,14 +60,23 @@ def style_dataframe(df):
             elif val.startswith('-'): return 'color: #e74c3c; font-weight: bold;'
         return ''
 
-    try:
-        return df.style.map(highlight_status, subset=['Status'])\
-                       .map(highlight_persentase, subset=['Persentase'])\
-                       .map(highlight_pnl, subset=['Floating Profit'])
-    except:
-        return df.style.applymap(highlight_status, subset=['Status'])\
-                       .applymap(highlight_persentase, subset=['Persentase'])\
-                       .applymap(highlight_pnl, subset=['Floating Profit'])
+    styler = df.style
+    
+    # Menyesuaikan dengan versi Pandas terbaru (map) atau lama (applymap)
+    if hasattr(styler, 'map'):
+        apply_func = styler.map
+    else:
+        apply_func = styler.applymap
+
+    # PERBAIKAN: Hanya mengaplikasikan style jika kolomnya benar-benar ada di DataFrame
+    if 'Status' in df.columns:
+        styler = apply_func(highlight_status, subset=['Status'])
+    if 'Persentase' in df.columns:
+        styler = apply_func(highlight_persentase, subset=['Persentase'])
+    if 'Floating Profit' in df.columns:
+        styler = apply_func(highlight_pnl, subset=['Floating Profit'])
+
+    return styler
 
 def render():
     tab_log, tab_hist = st.tabs(["💼 Live Portofolio", "🏆 Histori & Win-Rate"])
