@@ -55,9 +55,25 @@ def render():
         
         st.markdown(f"<h3 style='margin-top:20px;'>💡 Trading Intelligence: <span style='color:#3b82f6;'>{emiten_aktif}</span></h3>", unsafe_allow_html=True)
         
+        # --- TAMBAHAN: INDIKATOR SINYAL BUY / SELL OTOMATIS ---
+        try:
+            s_beli = float(res.get('scor_beli', 0))
+            s_jual = float(res.get('scor_jual', 0))
+        except ValueError:
+            s_beli, s_jual = 0, 0
+            
+        if s_jual > s_beli:
+            st.error(f"🚨 **SINYAL SELL (DISTRIBUSI):** Skor Jual/Distribusi ({s_jual}) mendominasi Skor Beli ({s_beli}). **Hindari masuk atau amankan profit jika sudah punya!**")
+        elif s_beli > s_jual:
+            st.success(f"🚀 **SINYAL BUY (AKUMULASI):** Skor Beli ({s_beli}) mendominasi Skor Jual ({s_jual}). **Bandar sedang kumpulin barang!**")
+        else:
+            st.warning(f"⚖️ **SINYAL NETRAL:** Tekanan Beli ({s_beli}) dan Jual ({s_jual}) seimbang. **Wait & See.**")
+        st.markdown("---")
+        # --------------------------------------------------------
+        
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         kpi1.metric("Scor Beli Bandar", f"{res.get('scor_beli', 0)}")
-        kpi2.metric("Scor Jual Ritel", f"{res.get('scor_jual', 0)}")
+        kpi2.metric("Scor Jual Ritel", f"{res.get('scor_jual', 0)}") # Note: Di kode awal Anda teksnya "Scor Jual Ritel", saya biarkan sama.
         kpi3.metric("Status SPK", res.get('status_spk', '-'))
         kpi4.metric("Grade", res.get('grade', '-'))
 
