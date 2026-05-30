@@ -2,7 +2,7 @@ import streamlit as st
 from utils.auth import render_auth
 
 # Pastikan folder Anda bernama 'views' (rename dari 'pages')
-from views import dashboard, journal 
+from views import dashboard, journal, help_page # <--- TAMBAHAN: Import help_page
 
 st.set_page_config(page_title="BandarLogi Pro", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
@@ -101,8 +101,9 @@ else:
     """, unsafe_allow_html=True)
     
     st.sidebar.markdown("---")
-    # Menggunakan bahasa yang lebih asyik untuk Menu
-    menu = st.sidebar.radio("Main Menu", ["⚡ Terminal Analisis", "🎯 Portofolio & Jurnal"])
+    
+    # <--- TAMBAHAN: Menambah "📘 Panduan Penggunaan" ke dalam Menu
+    menu = st.sidebar.radio("Main Menu", ["⚡ Terminal Analisis", "🎯 Portofolio & Jurnal", "📘 Panduan Penggunaan"])
     st.sidebar.markdown("---")
     
     if st.sidebar.button("Keluar (Logout)", width='stretch'):
@@ -110,11 +111,13 @@ else:
         st.rerun()
 
     # --- HEADER KONTEN UTAMA ---
-    # Mengganti teks kaku "SPK Saham" menjadi lebih komersial dan modern
     st.markdown('<h1 class="premium-title">BandarLogi Terminal.</h1>', unsafe_allow_html=True)
     st.markdown('<p class="premium-subtitle">Analisis jejak bandar, eksekusi trading plan, dan pantau portofolio Anda dalam satu layar.</p>', unsafe_allow_html=True)
 
+    # <--- TAMBAHAN: Routing ke halaman help_page
     if menu == "⚡ Terminal Analisis":
         dashboard.render()
     elif menu == "🎯 Portofolio & Jurnal":
         journal.render()
+    elif menu == "📘 Panduan Penggunaan":
+        help_page.render()
